@@ -154,42 +154,63 @@ int RoboArm::loop() {
       std::string line;
       std::string word;
       CmdRec cmd;
-      char *s2;
+      const char *s2;
+      char *s1;
       std::cout << "> ";
-      std::getline(std::cin,line);
-      
+      while(1) {
+      	std::getline(std::cin,line);
+     	if(line.size()) break; 
+      } // while
       // get first word and advance line to next arg
-      if((r = findFirstWord(word,line))<0)
+      if((r = findFirstWord(word,line))<0) {
          word.clear(); // problem
+         s2=0;
+      }
       else {
          r = line.find_first_not_of(whitespace,r);
          if(r == (int)std::string::npos)
             r = line.length();
          line = line.substr(r);
+         
+      	 s2 = line.c_str();
+          if(strlen(s2)<1) 
+             s2=0;
       }
    
       cmd.cmd=findIndexOfString(cmdTable,word.c_str());
       switch(cmd.cmd) {
       case CMD_size:
-         cmd.arg1 = strtol(line.c_str(),0,0); // could use std::stoi() if we use C++11
+      	 if(!s2)
+             goto syntax_error;
+         cmd.arg1 = strtol(s2,0,0); // could use std::stoi() if we use C++11
          break;
       case CMD_add:
-         cmd.arg1 = strtol(line.c_str(),0,0); // could use std::stoi() if we use C++11
+      	 if(!s2)
+             goto syntax_error;
+         cmd.arg1 = strtol(s2,0,0)-1; // could use std::stoi() if we use C++11
          break;
       case CMD_mv:
-         cmd.arg1 = strtol(line.c_str(),&s2,0); // could use std::stoi() if we use C++11
-         if(!s2)
+      	 if(!s2)
+             goto syntax_error;
+         cmd.arg1 = strtol(s2,&s1,0)-1; // could use std::stoi() if we use C++11
+         if(!s1 || (strlen(s1)<1))
             goto syntax_error;
-         cmd.arg2 = strtol(s2,0,0); // could use std::stoi() if we use C++11
+         cmd.arg2 = strtol(s1,0,0)-1; // could use std::stoi() if we use C++11
          break;
       case CMD_rm:
-         cmd.arg1 = strtol(line.c_str(),0,0); // could use std::stoi() if we use C++11
+      	 if(!s2)
+             goto syntax_error;
+         cmd.arg1 = strtol(s2,0,0)-1; // could use std::stoi() if we use C++11
          break;
       case CMD_replay:
-         cmd.arg1 = strtol(line.c_str(),0,0); // could use std::stoi() if we use C++11
+      	 if(!s2)
+             goto syntax_error;
+         cmd.arg1 = strtol(s2,0,0); // could use std::stoi() if we use C++11
          break;
       case CMD_undo:
-         cmd.arg1 = strtol(line.c_str(),0,0); // could use std::stoi() if we use C++11
+         if(!s2)
+            goto syntax_error;
+         cmd.arg1 = strtol(s2,0,0); // could use std::stoi() if we use C++11
          break;
       case CMD_help:
          help(getProgramName().c_str());
@@ -200,7 +221,7 @@ int RoboArm::loop() {
          goto FINALIZE;
       default:
       syntax_error:
-         std::cout << "* syntax error, command '" << word << "' not handled" << std::endl;
+         std::cout << "* syntax error, command '" << word << std::endl;
          cmd.cmd=-1; // don't play
          break;
       } // switch
@@ -225,7 +246,7 @@ FINALIZE:
 
 int RoboArm::show() {
    for(int i=0;i<(int)slotCollection.size();i++) {
-      std::cout << i << ": ";
+      std::cout << 1+i << ": ";
       std::cout << std::string(slotCollection[i],'X');
       std::cout << std::endl;
    } // for
@@ -257,7 +278,7 @@ int RoboArm::cmdMove(int slotSrc,int slotDst)
       return -2;
 
    if(slotCollection[slotSrc]<=0) {
-      std::cout << "- no blocks in source slot " << slotSrc << " to move" << std::endl;
+      std::cout << "- no blocks in source slot " << slotSrc+1 << " to move" << std::endl;
       return 1; // warning, not an error
    }
    
@@ -273,7 +294,7 @@ int RoboArm::cmdRemove(int slot)
       return -1;
 
    if(slotCollection[slot]<=0) {
-      std::cout << "- no blocks in slot " << slot << " to remove" << std::endl;
+      std::cout << "- no blocks in slot " << slot+1 << " to remove" << std::endl;
       return 1; // warning, not an error
    }
    
@@ -284,7 +305,7 @@ int RoboArm::cmdRemove(int slot)
 int RoboArm::cmdReplay(int numCommands)
 { // replay last num commands (in same order)
    int r;
-   if(numCommands>(int)cmdHistCollection.size())
+   if((numCommands<1) || (numCommands>(int)cmdHistCollection.size()))
       return -1;
    
    while(numCommands>0) {
@@ -300,7 +321,7 @@ int RoboArm::cmdReplay(int numCommands)
 int RoboArm::cmdUndo(int numCommands)
 { // undo the last num commands
    int r;
-   if(numCommands>(int)cmdHistCollection.size())
+   if((numCommands<1) || (numCommands>(int)cmdHistCollection.size()))
       return -1;
    for(int i=0;i<numCommands;i++) {
       CmdRec cmd = cmdHistCollection[i];
@@ -351,7 +372,7 @@ int main(int argc,char *argv[])
    while((str=strchr(program,'\\'))||(str=strchr(program,'/')))
       program=str+1;
       
-   printf("%s\n",program);
+   printf("%s\ntype 'help' for help\n",program);
    
    while(argc>0) {
       str = *argv++,argc--;
